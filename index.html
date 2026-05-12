@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#0D3B66"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Fiscais Itaqua"/>
+  <meta name="description" content="Sistema de Consulta de Fiscais - Itaquaquecetuba SP"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <title>Fiscais Itaquaquecetuba</title>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, orderBy, query, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqNKBz8KKAKQ8b-vhXAdXZeWI3zDnpOtU",
+      authDomain: "fiscais-itaqua-18897.firebaseapp.com",
+      projectId: "fiscais-itaqua-18897",
+      storageBucket: "fiscais-itaqua-18897.firebasestorage.app",
+      messagingSenderId: "720071165953",
+      appId: "1:720071165953:android:e25b5100c56b4ce98ad800"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    window._db = db;
+    window._fbModules = { collection, onSnapshot, doc, setDoc, deleteDoc, orderBy, query, writeBatch };
+    window.dispatchEvent(new Event('firebase-ready'));
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --blue-dark:  #0D3B66;
+      --blue:       #185FA5;
+      --blue-light: #E6F1FB;
+      --bg:         #F0F2F5;
+      --white:      #FFFFFF;
+      --border:     #E0E0E0;
+      --gray:       #888888;
+      --hint:       #AAAAAA;
+      --red:        #C62828;
+      --green:      #2E7D32;
+      --divider:    #EEEEEE;
+      --shadow:     0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: #333;
+      min-height: 100vh;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 10px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .header-title { font-family: 'Nunito', sans-serif; font-size: 17px; font-weight: 800; color: var(--blue-dark); }
+    .header-subtitle { font-size: 11px; color: var(--gray); margin-top: 1px; }
+    .header-actions { display: flex; gap: 4px; }
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: transparent; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; color: var(--blue-dark);
+      transition: background 0.15s;
+    }
+    .icon-btn:hover { background: var(--blue-light); }
+    .icon-btn.red { color: #E53935; }
+    .icon-btn svg { width: 20px; height: 20px; }
+
+    /* Stats */
+    .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .stat-chip {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--blue-light); border-radius: 20px;
+      padding: 4px 10px; font-size: 11px; color: var(--blue-dark); font-weight: 600;
+    }
+    .sync-badge {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--green); margin-left: auto;
+    }
+
+    /* Search */
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 100%; padding: 10px 40px 10px 36px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 14px; font-family: 'DM Sans', sans-serif;
+      background: var(--white); outline: none; transition: border 0.2s;
+    }
+    .search-input:focus { border-color: var(--blue); }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--hint); }
+    .clear-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      border: none; background: none; cursor: pointer; color: var(--hint);
+      display: none; font-size: 18px; line-height: 1;
+    }
+
+    /* Filtros */
+    .filtros { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .filtros::-webkit-scrollbar { display: none; }
+    .filtro-btn {
+      padding: 5px 14px; border-radius: 20px; border: 1.5px solid var(--border);
+      background: var(--white); font-size: 13px; font-weight: 600;
+      color: var(--blue-dark); cursor: pointer; white-space: nowrap;
+      transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .filtro-btn.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+    /* ── BODY ── */
+    .body { padding: 12px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white); border-radius: 12px;
+      border: 1px solid var(--border); margin-bottom: 10px;
+      overflow: hidden; animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+    .card-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px; flex-wrap: wrap;
+    }
+    .area-badge {
+      padding: 3px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 700; white-space: nowrap;
+      font-family: 'Nunito', sans-serif;
+    }
+    .fiscal-name { font-size: 14px; color: #444; flex: 1; min-width: 0; }
+    .bairros-count { font-size: 12px; color: var(--gray); white-space: nowrap; }
+
+    .card-divider { height: 1px; background: var(--divider); }
+    .card-hint { padding: 6px 12px 2px; font-size: 11px; color: var(--hint); font-style: italic; }
+
+    .chips-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 12px 12px; }
+    .chip {
+      padding: 4px 10px; border-radius: 20px; font-size: 12px;
+      cursor: pointer; transition: opacity 0.15s; background: #EBEBEB; color: #333;
+      user-select: none; -webkit-user-select: none;
+    }
+    .chip:active { opacity: 0.7; }
+    .chip.hl { font-weight: 700; }
+
+    /* Empty */
+    .empty { text-align: center; padding: 60px 20px; color: var(--gray); }
+    .empty svg { width: 64px; height: 64px; color: #CCC; margin-bottom: 12px; }
+
+    /* Loading */
+    .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 0; gap: 16px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MODAL ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 200; display: flex; align-items: flex-end;
+      justify-content: center; animation: fadeOverlay 0.2s ease;
+    }
+    @keyframes fadeOverlay { from { opacity:0; } to { opacity:1; } }
+    .modal {
+      background: var(--white); border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 700px; padding: 20px;
+      max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform:translateY(100%); } to { transform:none; } }
+    .modal-title {
+      font-family: 'Nunito', sans-serif; font-size: 18px;
+      font-weight: 800; color: var(--blue-dark); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .modal-close {
+      margin-left: auto; border: none; background: none;
+      font-size: 24px; cursor: pointer; color: var(--gray); line-height: 1;
+    }
+
+    /* Form */
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 4px; margin-top: 14px; }
+    input[type=text], input[type=password], textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+      outline: none; transition: border 0.2s; resize: vertical;
+    }
+    input:focus, textarea:focus { border-color: var(--blue); }
+
+    .btn {
+      padding: 11px 20px; border-radius: 10px; border: none;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      font-family: 'Nunito', sans-serif; transition: opacity 0.15s;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-blue { background: var(--blue); color: white; }
+    .btn-gray { background: #777; color: white; }
+    .btn-red  { background: var(--red); color: white; }
+    .btn-green { background: #00897B; color: white; }
+    .btn-row  { display: flex; gap: 10px; margin-top: 16px; }
+
+    .erro-msg { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+    /* Pix */
+    .pix-box {
+      background: #F0FFF4; border: 1.5px solid #81C784;
+      border-radius: 12px; padding: 20px; text-align: center; margin: 16px 0;
+    }
+    .pix-label { font-size: 12px; color: var(--gray); margin-top: 8px; }
+    .pix-key { font-size: 26px; font-weight: 800; color: #00897B; letter-spacing: 2px; font-family: 'Nunito', sans-serif; }
+
+    /* Historico */
+    .hist-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px; border-bottom: 1px solid var(--divider);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .hist-item:hover { background: var(--bg); }
+
+    /* Gerenciar */
+    .area-line {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px; border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 8px; background: var(--white);
+    }
+    .area-line-info { flex: 1; min-width: 0; }
+    .area-line-name { font-weight: 700; font-size: 13px; color: var(--blue-dark); }
+    .area-line-sub { font-size: 12px; color: var(--gray); margin-top: 2px; }
+    .area-line-btns { display: flex; gap: 6px; }
+    .small-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: opacity 0.15s;
+    }
+    .small-btn:active { opacity: 0.7; }
+    .edit-btn { background: var(--blue-light); color: var(--blue); }
+    .del-btn  { background: #FFEBEE; color: var(--red); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #222; color: white; padding: 12px 20px; border-radius: 10px;
+      font-size: 14px; z-index: 999; animation: toastIn 0.3s ease;
+      max-width: 90vw; text-align: center;
+    }
+    .toast.green { background: var(--green); }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(10px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+    /* Responsive desktop */
+    @media (min-width: 600px) {
+      .modal { border-radius: 16px; margin: auto; max-height: 85vh; }
+      .overlay { align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-title">📋 Fiscais Itaquaquecetuba</div>
+      <div class="header-subtitle" id="subtitleStats">Carregando...</div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="abrirHistorico()" title="Histórico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+      <button class="icon-btn" onclick="exportarCSV()" title="Exportar CSV">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <button class="icon-btn red" onclick="abrirDoacao()" title="Doação">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </button>
+      <button class="icon-btn" onclick="abrirSenha()" title="Gerenciar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-chip">🗺️ <span id="statAreas">-</span> áreas</div>
+    <div class="stat-chip">📍 <span id="statBairros">-</span> bairros</div>
+    <div class="stat-chip">👤 <span id="statFiscais">-</span> fiscais</div>
+    <div class="sync-badge" id="syncBadge" style="display:none">☁️ Sincronizado</div>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="searchInput" type="text"
+      placeholder="Buscar por área, fiscal ou bairro..." oninput="onBusca(this.value)"/>
+    <button class="clear-btn" id="clearBtn" onclick="limparBusca()">×</button>
+  </div>
+
+  <div class="filtros">
+    <button class="filtro-btn active" onclick="setFiltro('Todos', this)">Todos</button>
+    <button class="filtro-btn" onclick="setFiltro('Área', this)">Área</button>
+    <button class="filtro-btn" onclick="setFiltro('Fiscal', this)">Fiscal</button>
+    <button class="filtro-btn" onclick="setFiltro('Bairro', this)">Bairro</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body" id="resultados">
+  <div class="loading"><div class="spinner"></div><span style="color:var(--gray)">Carregando dados...</span></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  DADOS INICIAIS (fallback offline)
+// ═══════════════════════════════════════
+const AREAS_INICIAIS = [
+  {id:'1', fiscais:['Marcela'], bairros:['BAIRRO DO CORREDOR','CHACARA COQUEIRO','CHACARA SÃO MIGUEL','JARDIM ADRIANA','JARDIM COQUEIRO','JARDIM MARIA ROSA I','JARDIM MARIA ROSA II','PARQUE PIRATININGA I','PARQUE PIRATININGA II','PARQUE PIRATININGA III','RIO ABAIXO','SITIO SÃO FRANCISCO','VERANEIO MARACANA']},
+  {id:'1.1', fiscais:['Andrea'], bairros:['CHACARA DONA ESCOLASTICA','CHACARA MARACANA','JARDIM CRISTIANO','JARDIM ITAPUA','JARDIM KARINE','JARDIM PAINEIRA','JARDIM PRIMAVERA','JARDIM SAO JERONIMO','JARDIM TROPICAL','JARDIM VIANA','O PEQUENO CORAÇÃO','PARQUE VIVIANE','PARQUE VIVIANE II']},
+  {id:'2', fiscais:['Vinicius'], bairros:['CENTRO','JARDIM ANITA','JARDIM NOSSA SENHORA DA AJUDA','JARDIM ROSIRIS','JARDIM SANTA HELENA','VILA BRUNO','VILA FERREIRA','VILA FLORIDA','VILA VIRGÍNIA','VILA ZEFERINA','VILA ZEZUINA']},
+  {id:'2.1', fiscais:['Eduardo'], bairros:['BAIRRO TIPOIA','JARDIM CLAUDIA','JARDIM DA ESTAÇÃO','JARDIM FIORELLO','JARDIM MASCARENHAS','VILA BARTIRA','VILA DOLORES','VILA GEPINA','VILA MARIA AUGUSTA','VILA PASSALACQUA','VILA SANTA BÁRBARA','VILA SÔNIA']},
+  {id:'3', fiscais:['Marcelo','Silvio'], bairros:['BAIRRO ARACARE','CIDADE KEMEL','JARDIM ARACARE','JARDIM DA FONTE','JARDIM DO CARMO','JARDIM IVANA','JARDIM LUCIANA','JARDIM LUCIANA II','MIRAY','JARDIM VALPARAISO','JARDIM ZELIA','MONTE BELO','RESIDENCIAL RANCHO GRANDE','VILA ARIZONA','VILA FLORINDO','VILA GARCIA','VILA LONDRINA','VILA SÃO JOSE','VILA URSULINA']},
+  {id:'3.1', fiscais:['Sandra'], bairros:['BAIRRO ESTAÇÃO','JARDIM ALGARVE','JARDIM BELEM','JARDIM EUROPA','JARDIM GONÇALVES','JARDIM JOANDRA','JARDIM ROSELI','JARDIM SANTA LUZIA DE POA','JARDIM SANTO ANTONIO','JARDIM SONIA MARIA','MORRO BRANCO','PARQUE RESIDENCIAL ALVORADA','PEDREIRA','VILA ERCILIA','VILA FERREIRA','VILA MIRANDA','VILA ROLANDIA','VILA SÃO JUDAS TADEU','VILA SAO ROBERTO','VILA SÃO VICENTE DE PAULA','VILA VERMONT','VILA VITORIA']},
+  {id:'4', fiscais:['Humberto'], bairros:['BAIRRO DO MANDI','CHÁCARAS HOLLIDAY','JAGUARI','JARDIM SANTA RITA','JARDIM SANTA RITA II','PARQUE RESIDENCIAL MARENGO','PARQUE RESIDENCIAL SOUZA CAMPOS']},
+  {id:'4.1', fiscais:['João'], bairros:['CHACARA AGUAS DA PEDRA','ESTÂNCIA PARAÍSO','HORTO DO YPE','JARDIM FELIX E MILTON','JARDIM MARCELO','JARDIM MARGARIDA','PARQUE RECANTO MÔNICA','RESIDENCIAL JASMIM','VILA AUGUSTA']},
+  {id:'5', fiscais:['Ailton'], bairros:['ALTOS DE ITAQUA','CONJ. HAB. JARDIM ODETE I','CONJ. HAB. JARDIM ODETE II','FORTUNA RESIDENCIAL','JARDIM ADRIANE','ITAQUAMIRIM','JARDIM AMERICANO','JARDIM CAMPO LIMPO','JARDIM DOS AIMORES','JARDIM ODETE I','JARDIM ODETE II','PARQUE NOVO HORIZONTE','RESIDENCIAL PALMAS DE ITAQUA','RESIDENCIAL PAMELA']},
+  {id:'5.1', fiscais:['Tacio'], bairros:['CHACARA PROGRESSO','JARDIM DAS ACACIAS','JARDIM DO VALE','JARDIM DOS BURITIS','JARDIM NAPOLI I','JARDIM NAPOLI II','JARDIM SÃO PAULO','JARDIM TACAPE','NUCLEO JOÃO PISCINATTI','PARQUE DIRCE','PARQUE MACEDO','PARQUE RESIDENCIAL DAS ARVORES','TERRA PROMETIDA']},
+  {id:'6', fiscais:['Debora','Lucas'], bairros:['BAIRRO DO PIUM','BAIRRO DO RIBEIRO','CHACARA SAO JOAQUIM','CIDADE NOVA LOUZADA','ESTANCIA FRATERNIDADE','ESTANCIA GUATAMBU','JARDIM AMAZONAS','JARDIM DILLY','JARDIM JOSELY','JARDIM LUCINDA','JARDIM NICEA','JARDIM PINHEIRINHO','JARDIM RIO NEGRO','JARDIM TAMEM','PARQUE NOSSA SENHORA DAS GRAÇAS','JARDIM PIATA']},
+  {id:'7', fiscais:['Vilsania'], bairros:['ALPES DE ITAQUA','BAIRRO DO UNA','JARDIM CAROLINA','JARDIM HORTENCIA','JARDIM MORAES','JARDIM NASCENTE','JARDIM NOVO HORIZONTE','JARDIM SERRA DOURADA','QUINTA DA BOA VISTA','QUINTA DA BOA VISTA (INDUSTRIAL)','RESIDENCIAL FLAMBOYANT','VILA CELESTE','VILA FERLÓPOLIS','VILA ITAQUAMIRIM','VILA ITAQUASSU']},
+  {id:'7.1', fiscais:['Andre'], bairros:['ARUJÁ COUNTRY CLUB','CHÁCARA CUIABA','CONDOMÍNIO ARUJAZINHO III','CONDOMÍNIO ARUJAZINHO IV','CONDOMÍNIO VILLAGE','JARDIM ALTOS DO PINHEIRINHO 1','JARDIM AMANDA CAIUBY','JARDIM AMARAL','JARDIM CAIUBY','JARDIM GUARANI','JARDIM IKES','JARDIM MOSSAPIRA','PARQUE RESIDENCIAL SCAFFID I','PARQUE RESIDENCIAL SCAFFID II','RESIDENCIAL PROMISSÃO']},
+  {id:'8', fiscais:['Alexandre','Rafael'], bairros:['BAIRRO DO PEROBAL','JARDIM AMERICA','JARDIM CANAA','JARDIM IPE','JARDIM ITAQUA','JARDIM LUANA','JARDIM MARAGOGIPE','JARDIM MARIA ELIZA','JARDIM MONICA','JARDIM MORADA FELIZ','JARDIM PATRICIA','JARDIM SÃO ARMANDO','JARDIM SÃO MANOEL','JARDIM SILVESTRE','PARQUE RESIDENCIAL CALIFORNIA']},
+  {id:'8.1', fiscais:['Igor'], bairros:['BAIRRO CAMPO DA VENDA','CONJ. HAB. ANTONIO BIAGE','JARDIM DOS IPES','JARDIM JAPÃO','JARDIM NOVA ITAQUA','LOTEAMENTO INDUSTRIAL','PARQUE SÃO PEDRO','VILA GENI','VILA JAPÃO','VILA MENEZES','VILA NELLY','VILA SANTA BARBARA','VILA SÃO CARLOS']},
+];
+
+const PALETA = [
+  {fg:'#0C447C', chip:'#DBEEFF', badge:'#E6F1FB'},
+  {fg:'#085041', chip:'#C8F0E0', badge:'#E1F5EE'},
+  {fg:'#712B13', chip:'#FFD8C8', badge:'#FAECE7'},
+  {fg:'#72243E', chip:'#FFD0E0', badge:'#FBEAF0'},
+  {fg:'#27500A', chip:'#D8F5C0', badge:'#EAF3DE'},
+  {fg:'#633806', chip:'#FFE8C0', badge:'#FAEEDA'},
+  {fg:'#3C3489', chip:'#E0D8FF', badge:'#EEEDFE'},
+];
+
+// ═══════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════
+let areas    = [];
+let termo    = '';
+let filtro   = 'Todos';
+let historico = JSON.parse(localStorage.getItem('historico') || '[]');
+const SENHA_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+
+// ═══════════════════════════════════════
+//  FIREBASE LISTENER
+// ═══════════════════════════════════════
+window.addEventListener('firebase-ready', () => {
+  const db = window._db;
+  const { collection, onSnapshot, orderBy, query } = window._fbModules;
+  const q = query(collection(db, 'areas'), orderBy('ordem'));
+  onSnapshot(q, snap => {
+    if (snap.empty) {
+      popularFirebase();
+    } else {
+      areas = snap.docs.map(d => d.data());
+      renderizar();
+      document.getElementById('syncBadge').style.display = 'flex';
+    }
+  }, () => {
+    areas = AREAS_INICIAIS;
+    renderizar();
+  });
+});
+
+async function popularFirebase() {
+  const db = window._db;
+  const { doc, setDoc, writeBatch, collection } = window._fbModules;
+  const batch = writeBatch(db);
+  AREAS_INICIAIS.forEach((a, i) => {
+    batch.set(doc(collection(db, 'areas'), a.id), {...a, ordem: i});
+  });
+  await batch.commit();
+}
+
+// ═══════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════
+function renderizar() {
+  const t = termo.toLowerCase().trim();
+  const filtradas = areas.filter(a => {
+    if (!t) return true;
+    if (filtro === 'Área')   return a.id.toLowerCase().includes(t);
+    if (filtro === 'Fiscal') return a.fiscais.some(f => f.toLowerCase().includes(t));
+    if (filtro === 'Bairro') return a.bairros.some(b => b.toLowerCase().includes(t));
+    return a.id.toLowerCase().includes(t) ||
+           a.fiscais.some(f => f.toLowerCase().includes(t)) ||
+           a.bairros.some(b => b.toLowerCase().includes(t));
+  });
+
+  const totalBairros = areas.reduce((s, a) => s + a.bairros.length, 0);
+  const totalFiscais = new Set(areas.flatMap(a => a.fiscais)).size;
+  document.getElementById('statAreas').textContent   = areas.length;
+  document.getElementById('statBairros').textContent = totalBairros;
+  document.getElementById('statFiscais').textContent = totalFiscais;
+  document.getElementById('subtitleStats').textContent = `${areas.length} áreas · ${totalBairros} bairros · ${totalFiscais} fiscais`;
+
+  const res = document.getElementById('resultados');
+  if (!filtradas.length) {
+    res.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      <div>${t ? `Nenhum resultado para "<b>${t}</b>"` : 'Nenhuma área cadastrada.'}</div>
+    </div>`;
+    return;
+  }
+
+  const hlBairro = t && (filtro === 'Bairro' || filtro === 'Todos');
+  res.innerHTML = filtradas.map((a, i) => {
+    const idx = areas.indexOf(a);
+    const c = PALETA[(idx >= 0 ? idx : i) % PALETA.length];
+    const chips = a.bairros.map(b => {
+      const hl = hlBairro && b.toLowerCase().includes(t);
+      return `<span class="chip${hl ? ' hl' : ''}"
+        style="${hl ? `background:${c.chip};color:${c.fg}` : ''}"
+        onclick="abrirMaps('${b.replace(/'/g,"\\'")}')">
+        ${b} ↗
+      </span>`;
+    }).join('');
+    return `<div class="card">
+      <div class="card-header">
+        <span class="area-badge" style="background:${c.badge};color:${c.fg}">Área ${a.id}</span>
+        <span class="fiscal-name">👤 ${a.fiscais.join(', ')}</span>
+        <span class="bairros-count">${a.bairros.length} bairros</span>
+      </div>
+      <div class="card-divider"></div>
+      <div class="card-hint">📍 Toque num bairro para abrir no Google Maps</div>
+      <div class="chips-wrap">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  BUSCA
+// ═══════════════════════════════════════
+function onBusca(v) {
+  termo = v;
+  document.getElementById('clearBtn').style.display = v ? 'block' : 'none';
+  renderizar();
+  if (v.trim()) salvarHistorico(v.trim());
+}
+function limparBusca() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearBtn').style.display = 'none';
+  termo = '';
+  renderizar();
+}
+function setFiltro(f, btn) {
+  filtro = f;
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderizar();
+}
+
+// ═══════════════════════════════════════
+//  GOOGLE MAPS
+// ═══════════════════════════════════════
+function abrirMaps(bairro) {
+  const q = encodeURIComponent(`${bairro}, Itaquaquecetuba, SP`);
+  window.open(`https://www.google.com/maps/search/${q}`, '_blank');
+}
+
+// ═══════════════════════════════════════
+//  HISTÓRICO
+// ═══════════════════════════════════════
+function salvarHistorico(t) {
+  historico = historico.filter(x => x !== t);
+  historico.unshift(t);
+  if (historico.length > 20) historico.pop();
+  localStorage.setItem('historico', JSON.stringify(historico));
+}
+function abrirHistorico() {
+  if (!historico.length) { toast('Nenhuma busca recente.'); return; }
+  const items = historico.map(h => `
+    <div class="hist-item" onclick="usarHistorico('${h.replace(/'/g,"\\'")}')">
+      🕓 <span style="flex:1">${h}</span> <span style="color:var(--hint);font-size:12px">↗</span>
+    </div>`).join('');
+  abrirModal(`🕓 Histórico de Buscas`,
+    `${items}
+    <button class="btn btn-gray" style="width:100%;margin-top:12px" onclick="limparHistorico()">Limpar histórico</button>`
+  );
+}
+function usarHistorico(t) {
+  fecharModal();
+  document.getElementById('searchInput').value = t;
+  onBusca(t);
+}
+function limparHistorico() {
+  historico = [];
+  localStorage.removeItem('historico');
+  fecharModal();
+  toast('Histórico apagado.');
+}
+
+// ═══════════════════════════════════════
+//  EXPORTAR CSV
+// ═══════════════════════════════════════
+function exportarCSV() {
+  let csv = 'Área;Fiscal(is);Bairro\n';
+  areas.forEach(a => {
+    a.bairros.forEach((b, i) => {
+      csv += `${i===0?a.id:''};${i===0?a.fiscais.join(', '):''};${b}\n`;
+    });
+    csv += ';;\n';
+  });
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = 'fiscais_bairros.csv'; link.click();
+  URL.revokeObjectURL(url);
+  toast('✅ CSV exportado!', true);
+}
+
+// ═══════════════════════════════════════
+//  DOAÇÃO
+// ═══════════════════════════════════════
+function abrirDoacao() {
+  abrirModal('❤️ Fazer uma Doação', `
+    <p style="color:#555;font-size:14px;text-align:center;margin-bottom:16px">
+      Se este app foi útil, considere fazer uma doação via Pix. Muito obrigado! 🙏
+    </p>
+    <div class="pix-box">
+      <div style="font-size:36px">💚</div>
+      <div class="pix-label">Chave Pix (Celular)</div>
+      <div class="pix-key">11957687075</div>
+    </div>
+    <button class="btn btn-green" style="width:100%" onclick="copiarPix()">📋 Copiar chave Pix</button>
+    <p style="color:var(--hint);font-size:11px;text-align:center;margin-top:8px">
+      Abra seu banco → Pix → Pagar → Cole a chave
+    </p>
+  `);
+}
+function copiarPix() {
+  navigator.clipboard.writeText('11957687075').then(() => {
+    fecharModal();
+    toast('✅ Chave Pix copiada! Abra seu banco e cole no Pix.', true);
+  });
+}
+
+// ═══════════════════════════════════════
+//  SENHA + GERENCIAR
+// ═══════════════════════════════════════
+async function sha256(msg) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+let tentativas = 0;
+function abrirSenha() {
+  tentativas = 0;
+  abrirModal('🔒 Área Restrita', `
+    <p style="color:#555;margin-bottom:12px">Digite a senha para continuar:</p>
+    <input type="password" id="senhaInput" placeholder="Senha" onkeydown="if(event.key==='Enter')confirmarSenha()"/>
+    <div id="senhaErro" class="erro-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-blue" onclick="confirmarSenha()">Entrar</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('senhaInput')?.focus(), 100);
+}
+
+async function confirmarSenha() {
+  const val  = document.getElementById('senhaInput').value;
+  const hash = await sha256(val);
+  if (hash === SENHA_HASH) {
+    fecharModal();
+    abrirGerenciar();
+  } else {
+    tentativas++;
+    if (tentativas >= 3) { fecharModal(); toast('❌ Máximo de tentativas atingido.'); return; }
+    document.getElementById('senhaErro').textContent = `Senha incorreta. ${3-tentativas} tentativa(s) restante(s).`;
+    document.getElementById('senhaInput').value = '';
+  }
+}
+
+// ═══════════════════════════════════════
+//  GERENCIAR
+// ═══════════════════════════════════════
+function abrirGerenciar() {
+  const lista = areas.map((a, i) => {
+    const c = PALETA[i % PALETA.length];
+    return `<div class="area-line">
+      <span class="area-badge" style="background:${c.badge};color:${c.fg};white-space:nowrap">Área ${a.id}</span>
+      <div class="area-line-info">
+        <div class="area-line-name">${a.fiscais.join(', ')}</div>
+        <div class="area-line-sub">${a.bairros.length} bairros</div>
+      </div>
+      <div class="area-line-btns">
+        <button class="small-btn edit-btn" onclick="editarArea('${a.id}')">✏️</button>
+        <button class="small-btn del-btn" onclick="excluirArea('${a.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  abrirModal('⚙️ Gerenciar Áreas', `
+    ${lista}
+    <button class="btn btn-blue" style="width:100%;margin-top:12px" onclick="adicionarArea()">➕ Nova Área</button>
+  `);
+}
+
+function adicionarArea() {
+  abrirModal('➕ Adicionar Área', `
+    <label>Número da área</label>
+    <input type="text" id="novaId" placeholder="ex: 9 ou 9.1"/>
+    <label>Fiscais (um por linha)</label>
+    <textarea id="novaFiscais" rows="3" placeholder="Nome&#10;Outro Nome"></textarea>
+    <label>Bairros (um por linha)</label>
+    <textarea id="novaBairros" rows="5" placeholder="BAIRRO X&#10;BAIRRO Y"></textarea>
+    <div id="addErro" class="erro-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="abrirGerenciar()">Cancelar</button>
+      <button class="btn btn-blue" onclick="salvarNovaArea()">Adicionar</button>
+    </div>
+  `);
+}
+
+async function salvarNovaArea() {
+  const id      = document.getElementById('novaId').value.trim();
+  const fiscais = document.getElementById('novaFiscais').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  const bairros = document.getElementById('novaBairros').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if (!id) { document.getElementById('addErro').textContent='Informe o número da área.'; return; }
+  if (areas.find(a=>a.id===id)) { document.getElementById('addErro').textContent='Essa área já existe.'; return; }
+  if (!fiscais.length) { document.getElementById('addErro').textContent='Informe ao menos um fiscal.'; return; }
+  if (!bairros.length) { document.getElementById('addErro').textContent='Informe ao menos um bairro.'; return; }
+
+  const db = window._db;
+  const { doc, setDoc, collection } = window._fbModules;
+  await setDoc(doc(collection(db,'areas'), id), {id, fiscais, bairros, ordem: areas.length});
+  fecharModal();
+  toast('✅ Área adicionada em todos os dispositivos!', true);
+}
+
+function editarArea(id) {
+  const a = areas.find(x => x.id === id);
+  if (!a) return;
+  abrirModal(`✏️ Editar Área ${id}`, `
+    <label>Fiscais (um por linha)</label>
+    <textarea id="editFiscais" rows="3">${a.fiscais.join('\n')}</textarea>
+    <label>Bairros (um por linha)</label>
+    <textarea id="editBairros" rows="6">${a.bairros.join('\n')}</textarea>
+    <div id="editErro" class="erro-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="abrirGerenciar()">Cancelar</button>
+      <button class="btn btn-blue" onclick="salvarEdicao('${id}')">Salvar</button>
+    </div>
+  `);
+}
+
+async function salvarEdicao(id) {
+  const fiscais = document.getElementById('editFiscais').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  const bairros = document.getElementById('editBairros').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if (!fiscais.length) { document.getElementById('editErro').textContent='Informe ao menos um fiscal.'; return; }
+  if (!bairros.length) { document.getElementById('editErro').textContent='Informe ao menos um bairro.'; return; }
+
+  const db = window._db;
+  const { doc, setDoc, collection } = window._fbModules;
+  const idx = areas.findIndex(a=>a.id===id);
+  await setDoc(doc(collection(db,'areas'), id), {id, fiscais, bairros, ordem: idx});
+  fecharModal();
+  toast('✅ Atualizado em todos os dispositivos!', true);
+}
+
+async function excluirArea(id) {
+  if (!confirm(`Excluir área ${id}? Esta ação não pode ser desfeita.`)) return;
+  const db = window._db;
+  const { doc, deleteDoc, collection } = window._fbModules;
+  await deleteDoc(doc(collection(db,'areas'), id));
+  fecharModal();
+  toast('✅ Área removida em todos os dispositivos!', true);
+}
+
+// ═══════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════
+function abrirModal(titulo, conteudo) {
+  document.querySelectorAll('.overlay').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'overlay';
+  el.innerHTML = `<div class="modal">
+    <div class="modal-title">${titulo}<button class="modal-close" onclick="fecharModal()">×</button></div>
+    ${conteudo}
+  </div>`;
+  el.addEventListener('click', e => { if (e.target === el) fecharModal(); });
+  document.body.appendChild(el);
+}
+function fecharModal() {
+  document.querySelectorAll('.overlay').forEach(e => e.remove());
+}
+
+// ═══════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════
+function toast(msg, green=false) {
+  document.querySelectorAll('.toast').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'toast' + (green ? ' green' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+</script>
+</body>
+</html>
